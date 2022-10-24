@@ -41,7 +41,7 @@ if(!isset($url[1])||$url[1]!='token'){
 	if(!$token){
 		header('Content-type: application/json');
 		http_response_code(401);
-		die(json_encode(['message' => 'Unauthorized']));
+		die(json_encode(['message' => 'Unauthorized2']));
 	}
 }
 $collection=str_replace("-", "_",$url[1]);
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		die(json_encode(['error' => $e->getMessage()]));
 	}
 	if($url[1]=='token'){
-		if(isset($data['client'])>2&&$data['client']=='disabled'){
+		if(isset($data['client'])&&$data['client']=='disabled'){
 			$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
 			$OAUTH_CLIENT_SECRET=$OAUTH_CLIENT_SECRET_DISABLED;
 		}
