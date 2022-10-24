@@ -11,7 +11,6 @@ https://github.com/suendri/free-crud-php-mongodb
 ```
 sudo service mongod start
 ```
-
 **Check MongoDB server status**
 
 ```
