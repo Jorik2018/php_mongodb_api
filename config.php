@@ -13,6 +13,6 @@ function get_all_lines($file_handle) {
 }
 foreach (get_all_lines($file_handle) as $line) {
     $v=explode('=',$line,2);
-    ${trim($v[0])}=trim($v[1]);
+    if(count($v)>1)${trim($v[0])}=trim($v[1]);
 }
 fclose($file_handle);
