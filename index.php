@@ -6,13 +6,13 @@ include_once("utils.php");
 
 function callApi($path,$data=array()){
 
-	global $host,$OAUTH_CLIENT_ID,$client_secret;
+	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET;
 
-	$ch = curl_init($host.$path);
+	$ch = curl_init($OAUTH_URL.$path);
 	if($path=='/token'){
 		$code=$data['code'];
 		curl_setopt($ch, CURLOPT_POSTFIELDS,"grant_type=authorization_code&scope=profile&code=$code");
-		curl_setopt($ch, CURLOPT_USERPWD,$OAUTH_CLIENT_ID.":" .$client_secret);
+		curl_setopt($ch, CURLOPT_USERPWD,$OAUTH_CLIENT_ID.":" .$OAUTH_CLIENT_SECRET);
 		curl_setopt($ch, CURLOPT_POST,1);
 	}else{
 		$token=getBearerToken();

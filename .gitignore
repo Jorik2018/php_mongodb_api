@@ -4,9 +4,8 @@
 /node_modules
 /.pnp
 .pnp.js
-config.php
 .env
-
+push.bat
 # testing
 /coverage
 
