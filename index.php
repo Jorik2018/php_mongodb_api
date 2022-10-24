@@ -44,7 +44,7 @@ if(!isset($url[1])||$url[1]!='token'){
 		die(json_encode(['message' => 'Unauthorized']));
 	}
 }
-$col=str_replace("-", "_",$url[1]);
+$collection=str_replace("-", "_",$url[1]);
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	$writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100);
 	$bulk = new MongoDB\Driver\BulkWrite;
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		$id = new \MongoDB\BSON\ObjectId($id);
 		$bulk->update(['_id' => $id],['$set'=>array('canceled'=>1)]);
 	}
-	$result=$manager->executeBulkWrite("db.$col", $bulk,$writeConcern);
+	$result=$manager->executeBulkWrite("db.$collection", $bulk,$writeConcern);
 	die(json_encode($result));
 }else if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$json = file_get_contents('php://input');
@@ -63,6 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		die(json_encode(['error' => $e->getMessage()]));
 	}
 	if($url[1]=='token'){
+		if(count($url)>2&&$url[2]=='disabled'){
+			$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
+			$OAUTH_CLIENT_SECRET=$OAUTH_CLIENT_SECRET_DISABLED;
+		}
 		die(callApi('/'.$url[1],$data));
 	}
 	$token=getBearerToken();
@@ -78,6 +82,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	}else{
 		$data['_id'] =new MongoDB\BSON\ObjectId;
 		try{
+			if($collection=='disabled'){
+				$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
+				$OAUTH_CLIENT_SECRET=$OAUTH_CLIENT_SECRET_DISABLED;
+			}
 			$user=(array)json_decode(callApi('/api/me'), false, 512, JSON_THROW_ON_ERROR);
 			$data['uid'] =$user['id'];
 		}catch(Exception $e){
@@ -86,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		$bulk->insert($data);
 	}
 	$writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100); 
-	$r=$manager->executeBulkWrite("db.$col", $bulk,$writeConcern);
+	$r=$manager->executeBulkWrite("db.$collection", $bulk,$writeConcern);
 	die(json_encode($data));
 	if ($writeConcernError = $r->getWriteConcernError()) {
 		printf("%s (%d): %s\n", $writeConcernError->getMessage(), $writeConcernError->getCode(), var_export($writeConcernError->getInfo(), true));
@@ -100,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		$id = new \MongoDB\BSON\ObjectId($url[2]);
 		$filter = ['_id' =>$id];
 		$query = new MongoDB\Driver\Query($filter);
-		$cursor = $manager->executeQuery("db.$col", $query);
+		$cursor = $manager->executeQuery("db.$collection", $query);
 		foreach ($cursor as $document) {
 			die(json_encode($document));
 		}
@@ -108,12 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		$filter = ['canceled' => ['$ne' => 1]];
 		$query = new MongoDB\Driver\Query($filter,['skip' => $url[2],'limit'=>$url[3]]); 
 
-		$cmd = new MongoDB\Driver\Command(['count' => $col,'query' => $filter]);
+		$cmd = new MongoDB\Driver\Command(['count' => $collection,'query' => $filter]);
 		$all = $manager->executeCommand('db', $cmd);
 		$all=(array)$all->toArray()[0];
 		$all['size']=$all['n'];
 
-		$cursor = $manager->executeQuery("db.$col", $query);
+		$cursor = $manager->executeQuery("db.$collection", $query);
 		foreach ($cursor as $document) {
 			$data[]=$document;
 		}
