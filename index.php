@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		die(json_encode(['error' => $e->getMessage()]));
 	}
 	if($url[1]=='token'){
-		if(count($url)>2&&$url[2]=='disabled'){
+		if(isset($data['client'])>2&&$data['client']=='disabled'){
 			$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
 			$OAUTH_CLIENT_SECRET=$OAUTH_CLIENT_SECRET_DISABLED;
 		}
