@@ -6,15 +6,17 @@ include_once("utils.php");
 
 function callApi($path,$data=array()){
 
-	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET;
+	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
 
-	$ch = curl_init($OAUTH_URL.$path);
+	
 	if($path=='/token'){
+		$ch = curl_init($OAUTH_URL.$path);
 		$code=$data['code'];
 		curl_setopt($ch, CURLOPT_POSTFIELDS,"grant_type=authorization_code&scope=profile&code=$code");
 		curl_setopt($ch, CURLOPT_USERPWD,$OAUTH_CLIENT_ID.":" .$OAUTH_CLIENT_SECRET);
 		curl_setopt($ch, CURLOPT_POST,1);
 	}else{
+		$ch = curl_init($BASE_URL.$path);
 		$token=getBearerToken();
 		if(!$token)throw new Exception('No autorized.');
 		curl_setopt($ch, CURLOPT_POST,0);
@@ -62,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	}catch(Exception $e){
 		die(json_encode(['error' => $e->getMessage()]));
 	}
+
 	if($url[1]=='token'){
 		if(isset($data['client'])&&$data['client']=='disabled'){
 			$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
@@ -82,12 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	}else{
 		$data['_id'] =new MongoDB\BSON\ObjectId;
 		try{
-			if($collection=='disabled'){
-				$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
-				$OAUTH_CLIENT_SECRET=$OAUTH_CLIENT_SECRET_DISABLED;
-			}
-			$user=(array)json_decode(callApi('/api/me'), false, 512, JSON_THROW_ON_ERROR);
-			$data['uid'] =$user['id'];
+			$user=(array)json_decode(callApi('/api/auth'), false, 512, JSON_THROW_ON_ERROR);
+			$data['uid'] =$user['uid'];
 		}catch(Exception $e){
 			clog($e->getMessage());
 		}
@@ -102,7 +101,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 }else{
 	$token=getBearerToken();
 	if(!$token)throw new Exception('No autorized.');
-
+	try{
+		$s=callApi('/api/auth');
+		clog($s);
+		$user=(array)json_decode($s, false, 512, JSON_THROW_ON_ERROR);
+	}catch(Exception $e){
+		clog($e->getMessage());
+	}
+	if(http_response_code()!=200)die();
 	$data=array();
 	if(count($url)==3){
 		$id = new \MongoDB\BSON\ObjectId($url[2]);
