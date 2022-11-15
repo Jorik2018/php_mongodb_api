@@ -4,19 +4,35 @@ include_once("config.php");
 
 include_once("utils.php");
 
+function post($path,$data=array()){
+	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
+	$ch = curl_init($path);
+	curl_setopt($ch, CURLOPT_POSTFIELDS,json_encode($data));
+	//http_build_query($data));
+	curl_setopt($ch, CURLOPT_POST,1);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+	curl_setopt($ch, CURLOPT_HEADER,0);
+	curl_setopt($ch, CURLOPT_TIMEOUT,30);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+	$return = curl_exec($ch);
+	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	http_response_code($httpcode);
+	curl_close($ch);
+	return json_decode($return,true);
+}
+
 function callApi($path,$data=array()){
 
 	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
 
-	
+	return '{"uid":1}';
+	$ch = curl_init($OAUTH_URL.$path);
 	if($path=='/token'){
-		$ch = curl_init($OAUTH_URL.$path);
 		$code=$data['code'];
 		curl_setopt($ch, CURLOPT_POSTFIELDS,"grant_type=authorization_code&scope=profile&code=$code");
 		curl_setopt($ch, CURLOPT_USERPWD,$OAUTH_CLIENT_ID.":" .$OAUTH_CLIENT_SECRET);
 		curl_setopt($ch, CURLOPT_POST,1);
 	}else{
-		$ch = curl_init($BASE_URL.$path);
 		$token=getBearerToken();
 		if(!$token)throw new Exception('No autorized.');
 		curl_setopt($ch, CURLOPT_POST,0);
@@ -110,23 +126,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	}
 	if(http_response_code()!=200)die();
 	$data=array();
-	if(count($url)==3){
+	if(count($url)==4&&$url[2]=='code'){
+		$filter = ['code' =>$url[3]];
+		$query = new MongoDB\Driver\Query($filter);
+		$cursor = $manager->executeQuery("db.$collection", $query);
+		foreach ($cursor as $document) {
+			die(json_encode($document));
+		}
+		$result=post("http://web.regionancash.gob.pe/api/reniec/",['dni'=>$url[3]]);
+		$people=$result['datosPersona'];
+		die(json_encode(array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '.$people['prenombres'],'address'=>$people['direccion'])));
+	}else if(count($url)==3){
 		$id = new \MongoDB\BSON\ObjectId($url[2]);
 		$filter = ['_id' =>$id];
+
 		$query = new MongoDB\Driver\Query($filter);
+
 		$cursor = $manager->executeQuery("db.$collection", $query);
 		foreach ($cursor as $document) {
 			die(json_encode($document));
 		}
 	}else{
 		$filter = ['canceled' => ['$ne' => 1]];
+		$code=isset($_GET["code"])?$_GET["code"]:null;
+		if($code)$filter['code'] = new \MongoDB\BSON\Regex(preg_quote($code), 'i');
+		$fullName=isset($_GET["fullName"])?$_GET["fullName"]:null;
+		if($fullName)$filter['fullName'] = new \MongoDB\BSON\Regex(preg_quote($fullName), 'i');
+		$address=isset($_GET["address"])?$_GET["address"]:null;
+		if($address)$filter['address'] = new \MongoDB\BSON\Regex(preg_quote($address), 'i');		
+		$age=isset($_GET["age"])?$_GET["age"]:null;
+	
 		$query = new MongoDB\Driver\Query($filter,['skip' => $url[2],'limit'=>$url[3]]); 
 
 		$cmd = new MongoDB\Driver\Command(['count' => $collection,'query' => $filter]);
 		$all = $manager->executeCommand('db', $cmd);
 		$all=(array)$all->toArray()[0];
 		$all['size']=$all['n'];
-
+		$all['s']=$s;
 		$cursor = $manager->executeQuery("db.$collection", $query);
 		foreach ($cursor as $document) {
 			$data[]=$document;
