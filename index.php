@@ -21,6 +21,23 @@ function post($path,$data=array()){
 	return json_decode($return,true);
 }
 
+function get($path,$data=array()){
+	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
+	$ch = curl_init($BASE_URL.$path);
+	//curl_setopt($ch, CURLOPT_POSTFIELDS,json_encode($data));
+	//http_build_query($data));
+	curl_setopt($ch, CURLOPT_POST,0);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json'));
+	curl_setopt($ch, CURLOPT_HEADER,0);
+	curl_setopt($ch, CURLOPT_TIMEOUT,30);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+	$return = curl_exec($ch);
+	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	http_response_code($httpcode);
+	curl_close($ch);
+	return json_decode($return,true);
+}
+
 function callApi($path,$data=array()){
 
 	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
@@ -56,20 +73,21 @@ $url=explode( '/', $url);
 
 if(!isset($url[1])||$url[1]!='token'){
 	$token=getBearerToken();
-	if(!$token){
-		header('Content-type: application/json');
-		http_response_code(401);
-		die(json_encode(['message' => 'Unauthorized2']));
-	}
 }
 $collection=str_replace("-", "_",$url[1]);
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	$writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100);
 	$bulk = new MongoDB\Driver\BulkWrite;
+	$user=getCurrentUser($token);
 	$ids=explode(',',$url[count($url)-1]);
 	foreach ($ids as $id) {
 		$id = new \MongoDB\BSON\ObjectId($id);
-		$bulk->update(['_id' => $id],['$set'=>array('canceled'=>1)]);
+		$data=array('canceled'=>1);
+		$data['deleted_uid'] =$user['uid'];
+		$data['deleted_directory'] =$user['directory'];
+		$data['deleted_user'] =$user['user'];
+		$data['deleted'] =floor(microtime(true));
+		$bulk->update(['_id' => $id],['$set'=>$data]);
 	}
 	$result=$manager->executeBulkWrite("db.$collection", $bulk,$writeConcern);
 	die(json_encode($result));
@@ -80,7 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 	}catch(Exception $e){
 		die(json_encode(['error' => $e->getMessage()]));
 	}
-
 	if($url[1]=='token'){
 		if(isset($data['client'])&&$data['client']=='disabled'){
 			$OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID_DISABLED;
@@ -88,24 +105,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		}
 		die(callApi('/'.$url[1],$data));
 	}
-	$token=getBearerToken();
-	if(!$token)throw new Exception('No autorized.');
-
+	$user=getCurrentUser($token);
 	$id=$data['_id']?? null;
 	unset($data['_id']);
+	$data['uid'] =$user['uid'];
 	$bulk = new MongoDB\Driver\BulkWrite;
 	if($id){
 		$id=(array)$id;
 		$id=new MongoDB\BSON\ObjectId($id['$oid']);
+		$data['updated_uid'] =$user['uid'];
+		$data['updated_directory'] =$user['directory'];
+		$data['updated_user'] =$user['user'];
+		$data['updated'] =floor(microtime(true));
 		$bulk->update(['_id' => $id],['$set'=>$data]);
 	}else{
 		$data['_id'] =new MongoDB\BSON\ObjectId;
-		try{
-			$user=(array)json_decode(callApi('/api/auth'), false, 512, JSON_THROW_ON_ERROR);
-			$data['uid'] =$user['uid'];
-		}catch(Exception $e){
-			clog($e->getMessage());
-		}
+		$data['inserted_uid'] =$user['uid'];
+		$data['inserted_directory'] =$user['directory'];
+		$data['inserted_user'] =$user['user'];
+		$data['inserted'] =floor(microtime(true));
 		$bulk->insert($data);
 	}
 	$writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100); 
@@ -115,16 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		printf("%s (%d): %s\n", $writeConcernError->getMessage(), $writeConcernError->getCode(), var_export($writeConcernError->getInfo(), true));
 	}
 }else{
-	$token=getBearerToken();
-	if(!$token)throw new Exception('No autorized.');
-	try{
-		$s=callApi('/api/auth');
-		clog($s);
-		$user=(array)json_decode($s, false, 512, JSON_THROW_ON_ERROR);
-	}catch(Exception $e){
-		clog($e->getMessage());
-	}
-	if(http_response_code()!=200)die();
+	$user=getCurrentUser($token);
 	$data=array();
 	if(count($url)==4&&$url[2]=='code'){
 		$filter = ['code' =>$url[3]];
@@ -135,19 +144,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		}
 		$result=post("http://web.regionancash.gob.pe/api/reniec/",['dni'=>$url[3]]);
 		$people=$result['datosPersona'];
-		die(json_encode(array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '.$people['prenombres'],'address'=>$people['direccion'])));
+		$result=get('/admin/desarrollo-social/api/disabled/0/0?numDoc='.$url[3]);
+		$data=array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '
+		.$people['prenombres'],'address'=>$people['direccion']);
+		if(array_key_exists(0, $result['data'])){
+			$data=array_merge($data,$result['data'][0]);
+		}
+		$data['search']=$url[3];
+		die(json_encode($data));
 	}else if(count($url)==3){
 		$id = new \MongoDB\BSON\ObjectId($url[2]);
 		$filter = ['_id' =>$id];
-
 		$query = new MongoDB\Driver\Query($filter);
-
 		$cursor = $manager->executeQuery("db.$collection", $query);
 		foreach ($cursor as $document) {
 			die(json_encode($document));
 		}
 	}else{
 		$filter = ['canceled' => ['$ne' => 1]];
+
+	
+		if($user['uid']!=1){
+			//averiguar si es super_admin segun los permisos de la db
+			$filter['uid'] =$user['uid'];
+		}
 		$code=isset($_GET["code"])?$_GET["code"]:null;
 		if($code)$filter['code'] = new \MongoDB\BSON\Regex(preg_quote($code), 'i');
 		$fullName=isset($_GET["fullName"])?$_GET["fullName"]:null;
@@ -155,14 +175,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		$address=isset($_GET["address"])?$_GET["address"]:null;
 		if($address)$filter['address'] = new \MongoDB\BSON\Regex(preg_quote($address), 'i');		
 		$age=isset($_GET["age"])?$_GET["age"]:null;
-	
 		$query = new MongoDB\Driver\Query($filter,['skip' => $url[2],'limit'=>$url[3]]); 
-
 		$cmd = new MongoDB\Driver\Command(['count' => $collection,'query' => $filter]);
 		$all = $manager->executeCommand('db', $cmd);
 		$all=(array)$all->toArray()[0];
 		$all['size']=$all['n'];
-		$all['s']=$s;
 		$cursor = $manager->executeQuery("db.$collection", $query);
 		foreach ($cursor as $document) {
 			$data[]=$document;

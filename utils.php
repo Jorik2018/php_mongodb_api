@@ -14,6 +14,16 @@ function clog($msg){
     fclose($fh);
 }
 
+function getCurrentUser($token){
+    $user=$token?(array)json_decode(base64_decode(str_replace('_', '/', str_replace('-','+',explode('.', $token)[1]))),true):array();
+    /*if(microtime(true)>$user['exp']){
+        header('Content-type: application/json');
+        http_response_code(401);
+		die(json_encode(['message' => 'Unauthorized']));
+    }*/
+    return $user;
+}
+
 function getAuthorizationHeader(){
     $headers = null;
     if (isset($_SERVER['Authorization'])) {
