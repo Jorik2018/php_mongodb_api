@@ -7,6 +7,7 @@ include_once("utils.php");
 function post($path,$data=array()){
 	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
 	$ch = curl_init($path);
+	clog($path);
 	curl_setopt($ch, CURLOPT_POSTFIELDS,json_encode($data));
 	//http_build_query($data));
 	curl_setopt($ch, CURLOPT_POST,1);
@@ -15,6 +16,7 @@ function post($path,$data=array()){
 	curl_setopt($ch, CURLOPT_TIMEOUT,30);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
 	$return = curl_exec($ch);
+	clog($return);
 	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 	http_response_code($httpcode);
 	curl_close($ch);
@@ -23,7 +25,9 @@ function post($path,$data=array()){
 
 function get($path,$data=array()){
 	global $OAUTH_URL,$OAUTH_CLIENT_ID,$OAUTH_CLIENT_SECRET,$BASE_URL;
+	clog($BASE_URL.$path);
 	$ch = curl_init($BASE_URL.$path);
+	
 	//curl_setopt($ch, CURLOPT_POSTFIELDS,json_encode($data));
 	//http_build_query($data));
 	curl_setopt($ch, CURLOPT_POST,0);
@@ -31,7 +35,7 @@ function get($path,$data=array()){
 	curl_setopt($ch, CURLOPT_HEADER,0);
 	curl_setopt($ch, CURLOPT_TIMEOUT,30);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-	clog($BASE_URL.$path);
+	
 	$return = curl_exec($ch);
 	clog($return);
 	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
