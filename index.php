@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		}
 		$result=post("http://web.regionancash.gob.pe/api/reniec/",['dni'=>$url[3]]);
 		$people=$result['datosPersona'];
-		$result=get('/admin/desarrollo-social/api/disabled/0/0?numDoc='.$url[3]);
+		$result=get('/api/grds/disabled/0/0?numDoc='.$url[3]);
 		
 		$data=array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '
 		.$people['prenombres'],'address'=>$people['direccion']);
