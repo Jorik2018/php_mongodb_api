@@ -120,16 +120,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		$id=(array)$id;
 		$id=new MongoDB\BSON\ObjectId($id['$oid']);
 		$data['updated_uid'] =$user['uid'];
-		$data['updated_directory'] =$user['directory'];
+		if(isset($user['directory']))
+			$data['inserted_directory'] =$user['directory'];
+		if(isset($user['company']))
+			$data['inserted_company'] =$user['company'];
 		$data['updated_user'] =$user['user'];
 		$data['updated'] =floor(microtime(true));
 		$bulk->update(['_id' => $id],['$set'=>$data]);
 	}else{
 		$data['_id'] =new MongoDB\BSON\ObjectId;
-		$data['inserted_uid'] =$user['uid'];
-		$data['inserted_directory'] =$user['directory'];
-		$data['inserted_user'] =$user['user'];
-		$data['inserted'] =floor(microtime(true));
+		$data['updated_uid'] =$user['uid'];
+		if(isset($user['directory']))
+			$data['updated_directory'] =$user['directory'];
+		if(isset($user['company']))
+			$data['updated_company'] =$user['company'];
+		$data['updated_user'] =$user['user'];
+		$data['updated'] =floor(microtime(true));
 		$bulk->insert($data);
 	}
 	$writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100); 
@@ -177,17 +183,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		}
 		$code=isset($_GET["code"])?$_GET["code"]:null;
 		if($code)$filter['code'] = new \MongoDB\BSON\Regex(preg_quote($code), 'i');
+		
 		$fullName=isset($_GET["fullName"])?$_GET["fullName"]:null;
-		if($fullName)$filter['fullName'] = new \MongoDB\BSON\Regex(preg_quote($fullName), 'i');
+		if($fullName){
+			if($fullName)$filter['fullName'] = new \MongoDB\BSON\Regex(preg_quote($fullName), 'i');
+			/*$filter['$or']=[
+				['names' => new \MongoDB\BSON\Regex(preg_quote($fullName), 'i')],
+				['surnames' => new \MongoDB\BSON\Regex(preg_quote($fullName), 'i')]
+			];*/
+		}
+
 		$address=isset($_GET["address"])?$_GET["address"]:null;
-		if($address)$filter['address'] = new \MongoDB\BSON\Regex(preg_quote($address), 'i');		
+		if($address)$filter['address'] = new \MongoDB\BSON\Regex(preg_quote($address), 'i');	
+		
+		
 		$age=isset($_GET["age"])?$_GET["age"]:null;
-		$query = new MongoDB\Driver\Query($filter,['skip' => $url[2],'limit'=>$url[3]]); 
+		
+
+		$aggregate=[
+			['$addFields' => ['fullName' => ['$concat' => ['$names', '$surnames']]]], 
+			['$match' => $filter]
+		];
+
+		
+
+		
+		/*$query = new MongoDB\Driver\Query($filter,['skip' => $url[2],'limit'=>$url[3]]); 
+
+
+
+		$agg=[
+			['$addFields' => ['fullName' => ['$concat' => ['$names', '$surnames']]]], 
+			['$match' => $filter]
+		]
+
+
+
 		$cmd = new MongoDB\Driver\Command(['count' => $collection,'query' => $filter]);
 		$all = $manager->executeCommand('db', $cmd);
 		$all=(array)$all->toArray()[0];
 		$all['size']=$all['n'];
-		$cursor = $manager->executeQuery("db.$collection", $query);
+		$cursor = $manager->executeQuery("db.$collection", $query);*/
+		$cursor = $manager->executeCommand('db',new MongoDB\Driver\Command([
+			'aggregate' => $collection,
+			'pipeline' => array_merge($aggregate,[['$count'=>'count']]),
+			'cursor' => new stdClass
+		]));
+
+		$all=[];
+		foreach ($cursor as $document) {
+			$all['size']=$document->count;
+		}
+
+		$cursor = $manager->executeCommand('db',new MongoDB\Driver\Command([
+				'aggregate' => $collection,
+				'pipeline' => array_merge($aggregate,[['$skip' => intval($url[2])],['$limit' =>intval($url[3])]]),
+			'cursor' => new stdClass
+		]));
 		foreach ($cursor as $document) {
 			$data[]=$document;
 		}
