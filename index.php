@@ -159,8 +159,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		//data = data.consultarResponse.return;
 		if(isset($result['consultarResponse'])){
 			$people=$result['consultarResponse']['return']['datosPersona'];
+
 			$data=array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '
-				.$people['prenombres'],'address'=>$people['direccion']);
+				.$people['prenombres'],
+				'names'=>$people['prenombres'],
+				'surnames'=>$people['apPrimer'].' '.$people['apSegundo'],
+				'address'=>$people['direccion']);
 		}
 		//Find previous record
 		$result=get('/api/grds/disabled/0/0?numDoc='.$url[3]);
