@@ -155,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 			die(json_encode($document));
 		}
 		$data=array();
-
 		$result=post("http://web.regionancash.gob.pe/api/reniec/",['dni'=>$url[3]]);
 		if(isset($result['datosPersona'])){
 			$people=$result['datosPersona'];
