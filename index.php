@@ -154,15 +154,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 		foreach ($cursor as $document) {
 			die(json_encode($document));
 		}
+		$data=array();
+
 		$result=post("http://web.regionancash.gob.pe/api/reniec/",['dni'=>$url[3]]);
-		$people=$result['datosPersona'];
+		if(isset($result['datosPersona'])){
+			$people=$result['datosPersona'];
+			$data=array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '
+				.$people['prenombres'],'address'=>$people['direccion']);
+		}
+		//Find previous record
 		$result=get('/api/grds/disabled/0/0?numDoc='.$url[3]);
-		
-		$data=array('fullName'=>$people['apPrimer'].' '.$people['apSegundo'].' '
-		.$people['prenombres'],'address'=>$people['direccion']);
 		if(array_key_exists(0, $result['data'])){
 			$data=array_merge($data,$result['data'][0]);
 		}
+
 		$data['search']=$url[3];
 		die(json_encode($data));
 	}else if(count($url)==3){
